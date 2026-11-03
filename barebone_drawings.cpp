@@ -33,9 +33,28 @@
 #include <thread>
 #include <string>
 #include <sstream>
+#include <algorithm>
+#include <cctype>
 #include <atomic>
 #include <limits>
 #include <mutex>
+
+// ============================
+// LOWERCASE
+// ============================
+
+void makeLowercase(std::string& text) {
+
+    std::transform(
+        text.begin(),
+        text.end(),
+        text.begin(),
+        [](unsigned char c) {
+            return std::tolower(c);
+        }
+    );
+}
+
 
 // ============================
 // SETTINGS HERE (planned: user be able to change in terminal minor update)
@@ -115,10 +134,10 @@ void printHelp() {
         << "  set left <R> <G> <B> <A>\n"
         << "  set right <R> <G> <B> <A>\n"
         << "\n Canvas controls:\n"
-        << "  1 + R/G/B/A + mouse wheel = left RGBA\n"
-        << "  2 + R/G/B/A + mouse wheel = right RGBA\n"
-        << "  1 + S + mouse wheel = left brush size\n"
-        << "  2 + S + mouse wheel = right brush size\n"
+        << "  Z + R/G/B/A + mouse wheel = left RGBA\n"
+        << "  X + R/G/B/A + mouse wheel = right RGBA\n"
+        << "  Z + S + mouse wheel = left brush size\n"
+        << "  X + S + mouse wheel = right brush size\n"
         << "  Ctrl + S = save drawing\n"
         << "  Ctrl + O = open drawing\n"
         << "\n Key binds:\n"
@@ -128,10 +147,13 @@ void printHelp() {
         << "  Press 0-9 alone to activate a bind\n"
         << "  ~ means leave that setting unchanged\n"
         << "  Using ~ for all five values also clears that bind\n"
-        << "\n Brush size warning:\n"
+        << "\n Size warnings:\n"
         << "  There is NO artificial brush-size upper limit.\n"
         << "  Brush sizes use a signed 32-bit int and will break/wrap\n"
         << "  past 2147483647 or -2147483648.\n"
+        << "  Canvas sizes above 16384 pixels may exceed GPU texture limits\n"
+        << "  and can result in a black canvas or failed rendering.\n"
+        << "  Canvas sizes above 2147483647 pixels will not be taken.\n"
         << "\n Type 'help' in the terminal to view this message again.\n\n";
 }
 
@@ -618,6 +640,8 @@ void terminal() {
         std::string action;
         parser >> action;
 
+        makeLowercase(action);
+
         // ============================
         // GET
         // ============================
@@ -625,6 +649,8 @@ void terminal() {
         if (action == "get") {
             std::string target;
             parser >> target;
+
+            makeLowercase(target);
 
 
             // GET BIND
@@ -749,6 +775,8 @@ void terminal() {
                 std::string side;
                 parser >> side;
 
+                makeLowercase(side);
+
                 if (side == "left") {
                     std::cout
                         << "Left brush size: "
@@ -805,6 +833,8 @@ void terminal() {
             std::string target;
             parser >> target;
 
+            makeLowercase(target);
+
             // SET SIZE
 
             if (target == "size") {
@@ -812,6 +842,8 @@ void terminal() {
                 long long requestedSize;
 
                 parser >> side;
+
+                makeLowercase(side);
 
                 if (parser >> requestedSize) {
                     if (
@@ -830,7 +862,11 @@ void terminal() {
                             (int)requestedSize;
 
                         if (newSize < 1) {
-                            newSize = 1;
+
+                            std::cout
+                                << "FAILED; brush size must be greater than 0.\n";
+
+                            continue;
                         }
 
                         if (side == "left") {
@@ -1000,6 +1036,8 @@ void terminal() {
                 >> aText
                 >> sizeText
             ) {
+
+                makeLowercase(side);
 
                 if (
                     keyText.size() != 1 ||
@@ -1288,6 +1326,34 @@ int main() {
         '\n'
     );
 
+
+    // BIG SCREEN
+    if (
+        screenWidth > 16384 ||
+        screenHeight > 16384
+    ) {
+
+        std::cout
+            << "\nWARNING: Very large screen sizes may not work.\n"
+            << "Sizes above 16384 pixels may exceed GPU texture limits\n"
+            << "and can result in a black canvas or failed rendering.\n"
+            << "Sizes above 2147483647 pixels will not be taken.\n/n";
+    }
+
+    // ============================
+    // CREATE DRAWING WINDOW
+    // ============================
+
+    InitWindow(
+        screenWidth,
+        screenHeight,
+        "Barebone Drawings v0.2.1"
+    );
+
+    SetTargetFPS(
+        TARGET_FPS
+    );
+
     // ============================
     // START TERMINAL COMMAND THREAD
     // ============================
@@ -1299,20 +1365,6 @@ int main() {
     );
 
     terminalThread.detach();
-
-    // ============================
-    // CREATE DRAWING WINDOW
-    // ============================
-
-    InitWindow(
-        screenWidth,
-        screenHeight,
-        "Barebone Drawings v0.2.0"
-    );
-
-    SetTargetFPS(
-        TARGET_FPS
-    );
 
     // ============================
     // PERMANENT CANVAS
@@ -1505,7 +1557,7 @@ int main() {
 
         if (
             IsKeyDown(KEY_R) &&
-            IsKeyDown(KEY_ONE)
+            IsKeyDown(KEY_Z)
         ) {
             redleft.fetch_add(
                 wheel
@@ -1514,7 +1566,7 @@ int main() {
 
         if (
             IsKeyDown(KEY_G) &&
-            IsKeyDown(KEY_ONE)
+            IsKeyDown(KEY_Z)
         ) {
             greenleft.fetch_add(
                 wheel
@@ -1523,7 +1575,7 @@ int main() {
 
         if (
             IsKeyDown(KEY_B) &&
-            IsKeyDown(KEY_ONE)
+            IsKeyDown(KEY_Z)
         ) {
             blueleft.fetch_add(
                 wheel
@@ -1532,7 +1584,7 @@ int main() {
 
         if (
             IsKeyDown(KEY_A) &&
-            IsKeyDown(KEY_ONE)
+            IsKeyDown(KEY_Z)
         ) {
             alphaleft.fetch_add(
                 wheel
@@ -1545,7 +1597,7 @@ int main() {
 
         if (
             IsKeyDown(KEY_R) &&
-            IsKeyDown(KEY_TWO)
+            IsKeyDown(KEY_X)
         ) {
             redright.fetch_add(
                 wheel
@@ -1554,7 +1606,7 @@ int main() {
 
         if (
             IsKeyDown(KEY_G) &&
-            IsKeyDown(KEY_TWO)
+            IsKeyDown(KEY_X)
         ) {
             greenright.fetch_add(
                 wheel
@@ -1563,7 +1615,7 @@ int main() {
 
         if (
             IsKeyDown(KEY_B) &&
-            IsKeyDown(KEY_TWO)
+            IsKeyDown(KEY_X)
         ) {
             blueright.fetch_add(
                 wheel
@@ -1572,7 +1624,7 @@ int main() {
 
         if (
             IsKeyDown(KEY_A) &&
-            IsKeyDown(KEY_TWO)
+            IsKeyDown(KEY_X)
         ) {
             alpharight.fetch_add(
                 wheel
@@ -1585,7 +1637,7 @@ int main() {
 
         if (
             IsKeyDown(KEY_S) &&
-            IsKeyDown(KEY_ONE)
+            IsKeyDown(KEY_Z)
         ) {
             adjustBrushSize(
                 brushSizeLeft,
@@ -1596,7 +1648,7 @@ int main() {
 
         if (
             IsKeyDown(KEY_S) &&
-            IsKeyDown(KEY_TWO)
+            IsKeyDown(KEY_X)
         ) {
             adjustBrushSize(
                 brushSizeRight,
